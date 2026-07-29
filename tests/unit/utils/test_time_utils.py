@@ -1,8 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 
-from zenml.utils.time_utils import iso8601_to_utc_naive, seconds_to_human_readable
+from zenml.utils.time_utils import expires_in, iso8601_to_utc_naive, seconds_to_human_readable
 
 
 def test_iso8601_to_utc_naive_expected_behaviors() -> None:
@@ -62,3 +63,34 @@ def test_seconds_to_human_readable_zero() -> None:
 def test_seconds_to_human_readable_exact_minute() -> None:
     """Exactly 60 seconds should roll over to 1 minute, not '60s'."""
     assert seconds_to_human_readable(60) == "1m"
+
+
+def test_expires_in_future() -> None:
+    """When expiry is in the future, returns human-readable time left."""
+    fixed_now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    future_time = fixed_now + timedelta(seconds=90)
+    with patch("zenml.utils.time_utils.utc_now", return_value=fixed_now):
+        result = expires_in(future_time, "expired")
+    assert result == "1m30s"
+
+
+def test_expires_in_expired() -> None:
+    """When expiry is in the past, returns the expired string."""
+    past_time = datetime.now(timezone.utc) - timedelta(seconds=90)
+    result = expires_in(past_time, "expired")
+    assert result == "expired"
+
+
+def test_expires_in_skew_tolerance() -> None:
+    """When skew_tolerance pushes an otherwise-future expiry into the past,
+    returns the expired string."""
+    near_future = datetime.now(timezone.utc) + timedelta(seconds=60)
+    result = expires_in(near_future, "expired", skew_tolerance=120)
+    assert result == "expired"
+
+
+def test_expires_in_boundary_now() -> None:
+    """When expiry is exactly now, treated as expired."""
+    now_time = datetime.now(timezone.utc)
+    result = expires_in(now_time, "expired")
+    assert result == "expired"
