@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from zenml.utils.time_utils import iso8601_to_utc_naive
+from zenml.utils.time_utils import iso8601_to_utc_naive, seconds_to_human_readable
 
 
 def test_iso8601_to_utc_naive_expected_behaviors() -> None:
@@ -41,3 +41,24 @@ def test_iso8601_to_utc_naive_unexpected_inputs_raise_value_error() -> None:
 
     with pytest.raises(ValueError):
         iso8601_to_utc_naive("2026-02-18T08:15:30+99:99")  # invalid offset
+
+
+def test_seconds_to_human_readable_simple_minutes() -> None:
+    """90 seconds should read as 1 minute 30 seconds."""
+    assert seconds_to_human_readable(90) == "1m30s"
+
+
+def test_seconds_to_human_readable_all_units() -> None:
+    """A value spanning days, hours, minutes and seconds."""
+    total = 86400 + 7200 + 180 + 4
+    assert seconds_to_human_readable(total) == "1d2h3m4s"
+
+
+def test_seconds_to_human_readable_zero() -> None:
+    """Zero seconds should return an empty string, since no token applies."""
+    assert seconds_to_human_readable(0) == ""
+
+
+def test_seconds_to_human_readable_exact_minute() -> None:
+    """Exactly 60 seconds should roll over to 1 minute, not '60s'."""
+    assert seconds_to_human_readable(60) == "1m"
