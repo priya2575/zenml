@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from zenml.utils.time_utils import expires_in, iso8601_to_utc_naive, seconds_to_human_readable
+from zenml.utils.time_utils import expires_in, iso8601_to_utc_naive, seconds_to_human_readable, to_utc_timezone
 
 
 def test_iso8601_to_utc_naive_expected_behaviors() -> None:
@@ -94,3 +94,35 @@ def test_expires_in_boundary_now() -> None:
     now_time = datetime.now(timezone.utc)
     result = expires_in(now_time, "expired")
     assert result == "expired"
+
+
+def test_to_utc_timezone_naive_input() -> None:
+    """A naive datetime is assumed to already be UTC and gets tagged as such."""
+    naive_dt = datetime(2026, 1, 1, 10, 0, 0)
+    result = to_utc_timezone(naive_dt)
+    assert result == datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+    assert result.tzinfo == timezone.utc
+
+
+def test_to_utc_timezone_already_utc() -> None:
+    """A datetime already in UTC should be returned unchanged in value."""
+    utc_dt = datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+    result = to_utc_timezone(utc_dt)
+    assert result == utc_dt
+    assert result.tzinfo == timezone.utc
+
+
+def test_to_utc_timezone_converts_other_timezone() -> None:
+    """A datetime in IST (+5:30) should be converted to the correct UTC time."""
+    ist = timezone(timedelta(hours=5, minutes=30))
+    ist_dt = datetime(2026, 1, 1, 15, 30, 0, tzinfo=ist)
+    result = to_utc_timezone(ist_dt)
+    assert result == datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+
+
+def test_to_utc_timezone_negative_offset() -> None:
+    """A datetime in a negative-offset timezone (e.g. US Eastern, -5:00) converts correctly."""
+    est = timezone(timedelta(hours=-5))
+    est_dt = datetime(2026, 1, 1, 5, 0, 0, tzinfo=est)
+    result = to_utc_timezone(est_dt)
+    assert result == datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
