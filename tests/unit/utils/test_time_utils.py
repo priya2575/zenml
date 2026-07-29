@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from zenml.utils.time_utils import expires_in, iso8601_to_utc_naive, seconds_to_human_readable, to_utc_timezone
+from zenml.utils.time_utils import expires_in, iso8601_to_utc_naive, seconds_to_human_readable, to_local_tz, to_utc_timezone
 
 
 def test_iso8601_to_utc_naive_expected_behaviors() -> None:
@@ -126,3 +126,36 @@ def test_to_utc_timezone_negative_offset() -> None:
     est_dt = datetime(2026, 1, 1, 5, 0, 0, tzinfo=est)
     result = to_utc_timezone(est_dt)
     assert result == datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+
+
+def test_to_local_tz_naive_input() -> None:
+    """A naive datetime is assumed UTC, then converted to local time."""
+    naive_dt = datetime(2026, 1, 1, 10, 0, 0)
+    result = to_local_tz(naive_dt)
+    expected = naive_dt.replace(tzinfo=timezone.utc).astimezone()
+    assert result == expected
+    assert result.tzinfo is not None
+
+
+def test_to_local_tz_already_utc() -> None:
+    """A UTC-aware datetime converts to the local equivalent instant."""
+    utc_dt = datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+    result = to_local_tz(utc_dt)
+    assert result == utc_dt.astimezone()
+    assert result.astimezone(timezone.utc) == utc_dt
+
+
+def test_to_local_tz_from_other_timezone() -> None:
+    """A datetime in another timezone (IST) still lands on the correct instant locally."""
+    ist = timezone(timedelta(hours=5, minutes=30))
+    ist_dt = datetime(2026, 1, 1, 15, 30, 0, tzinfo=ist)
+    result = to_local_tz(ist_dt)
+    assert result == ist_dt.astimezone()
+    assert result.astimezone(timezone.utc) == ist_dt.astimezone(timezone.utc)
+
+
+def test_to_local_tz_preserves_instant() -> None:
+    """Converting to local tz must never change the actual point in time, only its label."""
+    dt = datetime(2026, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+    result = to_local_tz(dt)
+    assert result.astimezone(timezone.utc) == dt
