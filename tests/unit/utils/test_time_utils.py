@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from zenml.utils.time_utils import expires_in, iso8601_to_utc_naive, seconds_to_human_readable, to_local_tz, to_utc_timezone
+from zenml.utils.time_utils import expires_in, iso8601_to_utc_naive, seconds_to_human_readable, to_local_tz, to_utc_timezone, utc_now, utc_now_tz_aware
 
 
 def test_iso8601_to_utc_naive_expected_behaviors() -> None:
@@ -159,3 +159,37 @@ def test_to_local_tz_preserves_instant() -> None:
     dt = datetime(2026, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
     result = to_local_tz(dt)
     assert result.astimezone(timezone.utc) == dt
+
+
+def test_utc_now_default_naive() -> None:
+    """Default call (tz_aware=False) returns a naive datetime close to now."""
+    result = utc_now()
+    assert result.tzinfo is None
+    real_now = datetime.now(timezone.utc).replace(tzinfo=None)
+    assert abs((real_now - result).total_seconds()) < 2
+
+
+def test_utc_now_tz_aware_true() -> None:
+    """tz_aware=True returns a UTC-aware datetime."""
+    result = utc_now(tz_aware=True)
+    assert result.tzinfo == timezone.utc
+
+
+def test_utc_now_matches_naive_reference() -> None:
+    """Passing a naive datetime as tz_aware makes the result naive too."""
+    naive_ref = datetime(2020, 1, 1)
+    result = utc_now(tz_aware=naive_ref)
+    assert result.tzinfo is None
+
+
+def test_utc_now_matches_aware_reference() -> None:
+    """Passing a tz-aware datetime as tz_aware makes the result aware too."""
+    aware_ref = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    result = utc_now(tz_aware=aware_ref)
+    assert result.tzinfo == timezone.utc
+
+
+def test_utc_now_tz_aware_wrapper() -> None:
+    """utc_now_tz_aware() always returns a UTC-aware datetime."""
+    result = utc_now_tz_aware()
+    assert result.tzinfo == timezone.utc
